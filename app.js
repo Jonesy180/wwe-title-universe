@@ -42,12 +42,12 @@ function header(sub=''){
         : ''
       }
 
-      <div class="version">v0.1.0</div>
+      <div class="version">v0.2.0</div>
     </div>
   `;
 }
 function home(){
- return `<main class="shell">${header('Definitely not OTG! with suplexes.')}<section class="hero"><h2>Choose a game</h2><p>One simple engine. Eleven WWE 2K datasets. 2K26 is the live test game; the older games will plug into the same structure as their data is built.</p></section><div class="grid">${GAMES.map(g=>`<button class="game-tile ${g==='2K26'?'ready':''}" ${g!=='2K26'?'disabled':''} data-game="${g}"><strong>WWE ${g}</strong><small>${g==='2K26'?'OPEN • FOUNDATION':'DATA QUEUED'}</small></button>`).join('')}</div><div class="footer">Local progress is stored in this browser only in v0.1.0.</div></main>`
+ return `<main class="shell">${header('Definitely not OTG! with suplexes.')}<section class="hero"><h2>Choose a game</h2><p>One simple engine. Eleven WWE 2K datasets. 2K26 is the live test game; the older games will plug into the same structure as their data is built.</p></section><div class="grid">${GAMES.map(g=>`<button class="game-tile ${g==='2K26'?'ready':''}" ${g!=='2K26'?'disabled':''} data-game="${g}"><strong>WWE ${g}</strong><small>${g==='2K26'?'OPEN • FOUNDATION':'DATA QUEUED'}</small></button>`).join('')}</div><div class="footer">Local progress is stored in this browser only in v0.2.0.</div></main>`
 }
 function nav(){const items=['dashboard','roster','championships','arenas','tag teams','tournaments'];return `<div class="nav-grid">${items.map(x=>`<button class="nav-tile ${state.section===x?'active':''}" data-section="${x}">${x.replace(/\b\w/g,c=>c.toUpperCase())}</button>`).join('')}</div>`}
 function dashboard(){
