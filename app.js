@@ -31,8 +31,43 @@ function home(){
  return `<main class="shell">${header('Definitely not OTG! with suplexes.')}<section class="hero"><h2>Choose a game</h2><p>One simple engine. Eleven WWE 2K datasets. 2K26 is the live test game; the older games will plug into the same structure as their data is built.</p></section><div class="grid">${GAMES.map(g=>`<button class="game-tile ${g==='2K26'?'ready':''}" ${g!=='2K26'?'disabled':''} data-game="${g}"><strong>WWE ${g}</strong><small>${g==='2K26'?'OPEN • FOUNDATION':'DATA QUEUED'}</small></button>`).join('')}</div><div class="footer">Local progress is stored in this browser only in v0.1.0.</div></main>`
 }
 function nav(){const items=['dashboard','roster','championships','arenas','tag teams','tournaments'];return `<div class="nav-grid">${items.map(x=>`<button class="nav-tile ${state.section===x?'active':''}" data-section="${x}">${x.replace(/\b\w/g,c=>c.toUpperCase())}</button>`).join('')}</div>`}
-function dashboard(){const d=state.data,p=loadProgress(state.game);const rd=d.roster.filter(r=>isDone('roster',r.name)).length,cd=d.championships.filter(x=>isDone('championships',x.name)).length,ad=d.arenas.filter(x=>isDone('arenas',x.name)).length,ready=d.tagTeams.filter(x=>tagStatus(x)==='READY').length;return `<div class="notice">2K26 data is still provisional while we reconcile the full SmackDown Hotel roster. MISSING is deliberately the safe default.</div><div class="stats"><div class="stat"><b>${rd}/${d.roster.length}</b><span>Roster DONE • ${pct(rd,d.roster.length)}%</span></div><div class="stat"><b>${cd}/${d.championships.length}</b><span>Championships DONE</span></div><div class="stat"><b>${ad}/${d.arenas.length}</b><span>Arenas DONE</span></div><div class="stat"><b>${ready}/${d.tagTeams.length}</b><span>Tag teams READY</span></div></div><div class="section-title"><h3>How it works</h3></div><div class="cards"><div class="card"><h4>Unlock → eligibility</h4><p>Change a wrestler from MISSING to DONE and they immediately count in their assigned singles-title pool.</p></div><div class="card"><h4>Tags</h4><p>A team becomes READY only when both listed members are DONE.</p></div><div class="card"><h4>Tournaments</h4><p>Every competition is knockout. Match types and final arena are already attached to each title concept.</p></div></div>`}
-function roster(){let arr=state.data.roster;const q=state.query.toLowerCase();if(q)arr=arr.filter(r=>[r.name,r.identity,r.brand,r.singlesCompetition].some(v=>String(v||'').toLowerCase().includes(q)));if(state.filter!=='ALL')arr=arr.filter(r=>r.gender===state.filter || r.rosterType===state.filter);return `<div class="toolbar"><input class="search" data-input="query" value="${esc(state.query)}" placeholder="Search wrestler, brand or title…"><select class="filter" data-input="filter"><option>ALL</option><option>Male</option><option>Female</option><option>MANAGER</option></select></div><div class="list">${arr.map(r=>`<div class="row"><div><strong>${esc(r.name)}</strong><div class="sub">${esc(r.identity)} • ${esc(r.brand)} • OVR ${esc(r.ovr||'TBA')}</div></div><div>${esc(r.gender)}</div><div>${esc(r.rosterType)}</div><div>${esc(r.singlesCompetition||'—')}</div><button class="status ${isDone('roster',r.name)?'done':''}" data-toggle="roster" data-name="${esc(r.name)}">${isDone('roster',r.name)?'DONE':'MISSING'}</button></div>`).join('')}</div>`}
+function dashboard(){
+  const d=state.data;
+
+  const rd=d.roster.filter(r=>isDone('roster',r.name)).length;
+  const cd=d.championships.filter(x=>isDone('championships',x.name)).length;
+  const ad=d.arenas.filter(x=>isDone('arenas',x.name)).length;
+  const ready=d.tagTeams.filter(x=>tagStatus(x)==='READY').length;
+
+  return `
+    <div class="notice">
+      2K26 data is still provisional while we reconcile the full SmackDown Hotel roster.
+      MISSING is deliberately the safe default.
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <b>${rd}/${d.roster.length}</b>
+        <span>Roster DONE • ${pct(rd,d.roster.length)}%</span>
+      </div>
+
+      <div class="stat">
+        <b>${cd}/${d.championships.length}</b>
+        <span>Championships DONE</span>
+      </div>
+
+      <div class="stat">
+        <b>${ad}/${d.arenas.length}</b>
+        <span>Arenas DONE</span>
+      </div>
+
+      <div class="stat">
+        <b>${ready}/${d.tagTeams.length}</b>
+        <span>Tag teams READY</span>
+      </div>
+    </div>
+  `;
+}
 function genericUnlock(kind,items,nameKey,sub){let q=state.query.toLowerCase(),arr=items;if(q)arr=arr.filter(x=>Object.values(x).some(v=>String(v||'').toLowerCase().includes(q)));return `<div class="toolbar"><input class="search" data-input="query" value="${esc(state.query)}" placeholder="Search…"></div><div class="list">${arr.map(x=>{let name=x[nameKey];return `<div class="row"><div><strong>${esc(name)}</strong><div class="sub">${esc(sub(x))}</div></div><div></div><div></div><div></div><button class="status ${isDone(kind,name)?'done':''}" data-toggle="${kind}" data-name="${esc(name)}">${isDone(kind,name)?'DONE':'MISSING'}</button></div>`}).join('')}</div>`}
 function tagTeams(){return `<div class="cards">${state.data.tagTeams.map(t=>{const s=tagStatus(t);return `<div class="card"><h4>${esc(t.team)}</h4><p>${esc(t.member1)} + ${esc(t.member2)}</p><p>${esc(t.competition)}</p><span class="pill ${s==='READY'?'good':s==='WAITING FOR 1'?'warn':'bad'}">${s}</span> <span class="pill">${esc(t.pairingBucket)}</span></div>`}).join('')}</div>`}
 function tournaments(){return `<div class="cards">${state.data.tournaments.map(t=>{const n=competitionCount(t);return `<div class="card"><h4>${esc(t.competition)}</h4><p>${esc(t.type)} • ${esc(t.division)} • ${n} unlocked entrants</p><p>R1: ${esc(t.round1)} → QF: ${esc(t.quarterFinal)} → SF: ${esc(t.semiFinal)} → Final: ${esc(t.final)}</p><p>Final arena: ${esc(t.finalArena)}</p><span class="pill">${bracketAdvice(n)}</span></div>`}).join('')}</div>`}
