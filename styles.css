@@ -172,10 +172,10 @@ button{cursor:pointer}
   text-align:left;
   min-height:54px;
 }
-
 .nav-tile.active{
-  outline:2px solid #63778d;
-  background:var(--panel2);
+  outline:1px solid #7651a8;
+  background:#171321;
+  box-shadow:0 0 14px rgba(118,81,168,.20);
 }
 
 /* STATS */
