@@ -68,6 +68,66 @@ function dashboard(){
     </div>
   `;
 }
+function roster(){
+  let arr=state.data.roster;
+  const q=state.query.toLowerCase();
+
+  if(q){
+    arr=arr.filter(r=>
+      [r.name,r.identity,r.brand,r.singlesCompetition]
+        .some(v=>String(v||'').toLowerCase().includes(q))
+    );
+  }
+
+  if(state.filter!=='ALL'){
+    arr=arr.filter(r=>
+      r.gender===state.filter || r.rosterType===state.filter
+    );
+  }
+
+  return `
+    <div class="toolbar">
+      <input
+        class="search"
+        data-input="query"
+        value="${esc(state.query)}"
+        placeholder="Search wrestler, brand or title…"
+      >
+
+      <select class="filter" data-input="filter">
+        <option>ALL</option>
+        <option>Male</option>
+        <option>Female</option>
+        <option>MANAGER</option>
+      </select>
+    </div>
+
+    <div class="list">
+      ${arr.map(r=>`
+        <div class="row">
+          <div>
+            <strong>${esc(r.name)}</strong>
+            <div class="sub">
+              ${esc(r.identity)} • ${esc(r.brand)} • OVR ${esc(r.ovr||'TBA')}
+            </div>
+          </div>
+
+          <div>${esc(r.gender)}</div>
+          <div>${esc(r.rosterType)}</div>
+          <div>${esc(r.singlesCompetition||'—')}</div>
+
+          <button
+            class="status ${isDone('roster',r.name)?'done':''}"
+            data-toggle="roster"
+            data-name="${esc(r.name)}"
+          >
+            ${isDone('roster',r.name)?'DONE':'MISSING'}
+          </button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
 function genericUnlock(kind,items,nameKey,sub){let q=state.query.toLowerCase(),arr=items;if(q)arr=arr.filter(x=>Object.values(x).some(v=>String(v||'').toLowerCase().includes(q)));return `<div class="toolbar"><input class="search" data-input="query" value="${esc(state.query)}" placeholder="Search…"></div><div class="list">${arr.map(x=>{let name=x[nameKey];return `<div class="row"><div><strong>${esc(name)}</strong><div class="sub">${esc(sub(x))}</div></div><div></div><div></div><div></div><button class="status ${isDone(kind,name)?'done':''}" data-toggle="${kind}" data-name="${esc(name)}">${isDone(kind,name)?'DONE':'MISSING'}</button></div>`}).join('')}</div>`}
 function tagTeams(){return `<div class="cards">${state.data.tagTeams.map(t=>{const s=tagStatus(t);return `<div class="card"><h4>${esc(t.team)}</h4><p>${esc(t.member1)} + ${esc(t.member2)}</p><p>${esc(t.competition)}</p><span class="pill ${s==='READY'?'good':s==='WAITING FOR 1'?'warn':'bad'}">${s}</span> <span class="pill">${esc(t.pairingBucket)}</span></div>`}).join('')}</div>`}
 function tournaments(){return `<div class="cards">${state.data.tournaments.map(t=>{const n=competitionCount(t);return `<div class="card"><h4>${esc(t.competition)}</h4><p>${esc(t.type)} • ${esc(t.division)} • ${n} unlocked entrants</p><p>R1: ${esc(t.round1)} → QF: ${esc(t.quarterFinal)} → SF: ${esc(t.semiFinal)} → Final: ${esc(t.final)}</p><p>Final arena: ${esc(t.finalArena)}</p><span class="pill">${bracketAdvice(n)}</span></div>`}).join('')}</div>`}
