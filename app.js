@@ -135,7 +135,20 @@ function game(){let content='';if(state.section==='dashboard')content=dashboard(
 function render(){app.innerHTML=state.view==='home'?home():game();const f=document.querySelector('[data-input="filter"]');if(f)f.value=state.filter}
 
 document.addEventListener('click',e=>{const g=e.target.closest('[data-game]');if(g)openGame(g.dataset.game);const a=e.target.closest('[data-action="home"]');if(a){state={view:'home',game:null,section:'dashboard',data:null,query:'',filter:'ALL'};render()}const s=e.target.closest('[data-section]');if(s){state.section=s.dataset.section;state.query='';state.filter='ALL';render()}const t=e.target.closest('[data-toggle]');if(t)setDone(t.dataset.toggle,t.dataset.name,!isDone(t.dataset.toggle,t.dataset.name));});
-document.addEventListener('input',e=>{if(e.target.dataset.input==='query'){state.query=e.target.value;render()}});
-document.addEventListener('change',e=>{if(e.target.dataset.input==='filter'){state.filter=e.target.value;render()}});
+document.addEventListener('input',e=>{
+  if(e.target.dataset.input==='query'){
+    state.query=e.target.value;
+
+    const caret=e.target.selectionStart;
+    render();
+
+    const search=document.querySelector('[data-input="query"]');
+
+    if(search){
+      search.focus();
+      search.setSelectionRange(caret,caret);
+    }
+  }
+});document.addEventListener('change',e=>{if(e.target.dataset.input==='filter'){state.filter=e.target.value;render()}});
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
 render();
