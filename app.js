@@ -1,6 +1,6 @@
 const GAMES = ["2K15","2K16","2K17","2K18","2K19","2K20","2K22","2K23","2K24","2K25","2K26"];
 const app = document.getElementById('app');
-const CURRENT_VERSION='0.3.1';
+const CURRENT_VERSION='0.4.0';
 let state = { view:'home', game:null, section:'dashboard', data:null, query:'', filter:'ALL', teamEditor:null };
 
 function storageKey(game){ return `wtu:${game}:v1`; }
@@ -64,8 +64,9 @@ function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt
 function pct(a,b){return b?Math.round(a/b*100):0}
 
 async function openGame(game){
-  if(game!=="2K26") return;
-  const res=await fetch('data/2k26.json');
+  if(!['2K25','2K26'].includes(game)) return;
+  const res=await fetch(`data/${game.toLowerCase()}.json`);
+  if(!res.ok){alert(`Could not load WWE ${game} data.`);return;}
   state={...state,view:'game',game,section:'dashboard',data:await res.json(),query:'',filter:'ALL',teamEditor:null};
   render();
 }
@@ -103,96 +104,17 @@ function header(sub=''){
   `;
 }
 function home(){
- return `<main class="shell">${header('Definitely not OTG! with suplexes.')}<section class="hero"><h2>Choose a game</h2><p>One simple engine. Eleven WWE 2K datasets. 2K26 is the live test game; the older games will plug into the same structure as their data is built.</p></section><div class="grid">${GAMES.map(g=>`<button class="game-tile ${g==='2K26'?'ready':''}" ${g!=='2K26'?'disabled':''} data-game="${g}"><strong>WWE ${g}</strong><small>${g==='2K26'?'OPEN • FOUNDATION':'DATA QUEUED'}</small></button>`).join('')}</div><div class="footer">Local progress and custom teams are stored on this device &bull; v${CURRENT_VERSION}.</div></main>`
+ return `<main class="shell">${header('Definitely not OTG! with suplexes.')}<section class="hero"><h2>Choose a game</h2><p>One simple engine. Eleven WWE 2K datasets. 2K25 and 2K26 are live; the older games will plug into the same structure as their data is built.</p></section><div class="grid">${GAMES.map(g=>{const ready=g==='2K25'||g==='2K26';const label=g==='2K26'?'OPEN &bull; SDH 501':g==='2K25'?'OPEN &bull; SDH 436':'DATA QUEUED';return `<button class="game-tile ${ready?'ready':''}" ${ready?'':'disabled'} data-game="${g}"><strong>WWE ${g}</strong><small>${label}</small></button>`}).join('')}</div><div class="footer">Local progress and custom teams are stored on this device &bull; v${CURRENT_VERSION}.</div></main>`
 }
 function nav(){const items=['dashboard','roster','championships','arenas','tag teams','tournaments'];return `<div class="nav-grid">${items.map(x=>`<button class="nav-tile ${state.section===x?'active':''}" data-section="${x}">${x.replace(/\b\w/g,c=>c.toUpperCase())}</button>`).join('')}</div>`}
 function dashboard(){
   const d=state.data;
-
   const rd=d.roster.filter(r=>isDone('roster',r.name)).length;
   const cd=d.championships.filter(x=>isDone('championships',x.name)).length;
   const ad=d.arenas.filter(x=>isDone('arenas',x.name)).length;
   const teams=allTagTeams();
   const ready=teams.filter(x=>tagStatus(x)==='READY').length;
-
-  return `
-    <div class="notice">
-      2K26 roster is reconciled to TheSmackDownHotel's 501-entry list.
-      MISSING is deliberately the safe default.
-    </div>
-
-    <div class="stats">
-      <div class="stat">
-        <b>${rd}/${d.roster.length}</b>
-        <span>Roster DONE • ${pct(rd,d.roster.length)}%</span>
-      </div>
-
-      <div class="stat">
-        <b>${cd}/${d.championships.length}</b>
-        <span>Championships DONE</span>
-      </div>
-
-      <div class="stat">
-        <b>${ad}/${d.arenas.length}</b>
-        <span>Arenas DONE</span>
-      </div>
-
-      <div class="stat">
-        <b>${ready}/${teams.length}</b>
-        <span>Tag teams READY</span>
-      </div>
-    </div>
-  `;
-}
-function about(){
-  return `
-    <div class="section-title">
-      <h3>How It Works</h3>
-    </div>
-
-    <div class="cards">
-      <div class="card">
-        <h4>Unlocks</h4>
-        <p>
-          Wrestlers, championships and arenas start as MISSING.
-          Change them to DONE as they are unlocked.
-        </p>
-      </div>
-
-      <div class="card">
-        <h4>Singles</h4>
-        <p>
-          A DONE wrestler automatically joins their assigned
-          championship tournament pool.
-        </p>
-      </div>
-
-      <div class="card">
-        <h4>Tag Teams</h4>
-        <p>
-          LOCKED means neither member is available.
-          WAITING FOR 1 means one member is DONE.
-          READY means both members are DONE.
-        </p>
-      </div>
-
-      <div class="card">
-        <h4>Tournaments</h4>
-        <p>
-          Tournament entrant counts update automatically from the
-          wrestlers you have unlocked. All tournaments use knockout formats.
-        </p>
-      </div>
-
-      <div class="card">
-        <h4>Data</h4>
-        <p>
-          MISSING is always the safe default. A wrestler or item only
-          becomes DONE when you confirm it is actually available.
-        </p>
-      </div>
-    </div>
-  `;
+  return `<div class="notice">WWE ${state.game} &bull; ${esc(d.status||'DATASET')}. MISSING is deliberately the safe default.</div><div class="stats"><div class="stat"><b>${rd}/${d.roster.length}</b><span>Roster DONE &bull; ${pct(rd,d.roster.length)}%</span></div><div class="stat"><b>${cd}/${d.championships.length}</b><span>Championships DONE</span></div><div class="stat"><b>${ad}/${d.arenas.length}</b><span>Arenas DONE</span></div><div class="stat"><b>${ready}/${teams.length}</b><span>Tag teams READY</span></div></div>`
 }
 function roster(){
   let arr=state.data.roster;
@@ -295,7 +217,7 @@ function saveTeamFromForm(form){
   const competition=String(fd.get('competition')||'').trim();
   const names=new Set(state.data.roster.map(r=>r.name));
   if(!team)return alert('Give the team a name.');
-  if(!names.has(member1)||!names.has(member2))return alert('Choose both members from the WWE 2K26 roster.');
+  if(!names.has(member1)||!names.has(member2))return alert(`Choose both members from the WWE ${state.game} roster.`);
   if(member1===member2)return alert('A tag team needs two different wrestlers.');
   const tournament=state.data.tournaments.find(t=>t.type==='Tag'&&t.competition===competition);
   if(!tournament)return alert('Choose a valid tag championship.');

@@ -1,5 +1,5 @@
 {
-  "version": "0.3.1",
+  "version": "0.4.0",
   "released": "2026-09-20",
-  "notes": "Hotfix: reliable update icon, modal custom-team editing, encoding cleanup and cache-free localhost development."
+  "notes": "Adds the WWE 2K25 SDH 436 dataset as the second live game, with separate progress and custom teams."
 }
