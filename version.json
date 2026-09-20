@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0",
+  "version": "0.3.1",
   "released": "2026-09-20",
-  "notes": "Adds custom tag teams and an in-app update button with automatic safety backup."
+  "notes": "Hotfix: reliable update icon, modal custom-team editing, encoding cleanup and cache-free localhost development."
 }

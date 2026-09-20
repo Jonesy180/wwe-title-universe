@@ -1,6 +1,6 @@
 const GAMES = ["2K15","2K16","2K17","2K18","2K19","2K20","2K22","2K23","2K24","2K25","2K26"];
 const app = document.getElementById('app');
-const CURRENT_VERSION='0.3.0';
+const CURRENT_VERSION='0.3.1';
 let state = { view:'home', game:null, section:'dashboard', data:null, query:'', filter:'ALL', teamEditor:null };
 
 function storageKey(game){ return `wtu:${game}:v1`; }
@@ -97,13 +97,13 @@ function header(sub=''){
         : ''
       }
 
-      <button class="update-btn" data-action="check-update" title="Check for updates" aria-label="Check for updates">â†»</button>
+      <button class="update-btn" data-action="check-update" title="Check for updates" aria-label="Check for updates"></button>
       <div class="version">v${CURRENT_VERSION}</div>
     </div>
   `;
 }
 function home(){
- return `<main class="shell">${header('Definitely not OTG! with suplexes.')}<section class="hero"><h2>Choose a game</h2><p>One simple engine. Eleven WWE 2K datasets. 2K26 is the live test game; the older games will plug into the same structure as their data is built.</p></section><div class="grid">${GAMES.map(g=>`<button class="game-tile ${g==='2K26'?'ready':''}" ${g!=='2K26'?'disabled':''} data-game="${g}"><strong>WWE ${g}</strong><small>${g==='2K26'?'OPEN • FOUNDATION':'DATA QUEUED'}</small></button>`).join('')}</div><div class="footer">Local progress and custom teams are stored on this device â€¢ v${CURRENT_VERSION}.</div></main>`
+ return `<main class="shell">${header('Definitely not OTG! with suplexes.')}<section class="hero"><h2>Choose a game</h2><p>One simple engine. Eleven WWE 2K datasets. 2K26 is the live test game; the older games will plug into the same structure as their data is built.</p></section><div class="grid">${GAMES.map(g=>`<button class="game-tile ${g==='2K26'?'ready':''}" ${g!=='2K26'?'disabled':''} data-game="${g}"><strong>WWE ${g}</strong><small>${g==='2K26'?'OPEN • FOUNDATION':'DATA QUEUED'}</small></button>`).join('')}</div><div class="footer">Local progress and custom teams are stored on this device &bull; v${CURRENT_VERSION}.</div></main>`
 }
 function nav(){const items=['dashboard','roster','championships','arenas','tag teams','tournaments'];return `<div class="nav-grid">${items.map(x=>`<button class="nav-tile ${state.section===x?'active':''}" data-section="${x}">${x.replace(/\b\w/g,c=>c.toUpperCase())}</button>`).join('')}</div>`}
 function dashboard(){
@@ -269,15 +269,15 @@ function tagTeamEditor(){
         <input class="search team-input" name="team" value="${esc(editing?.team||'')}" placeholder="e.g. Brothers of Darkness" required>
       </label>
       <label class="field-label">Member 1
-        <input class="search team-input" name="member1" list="wtu-roster-names" value="${esc(editing?.member1||'')}" placeholder="Start typing a wrestlerâ€¦" required>
+        <input class="search team-input" name="member1" list="wtu-roster-names" value="${esc(editing?.member1||'')}" placeholder="Start typing a wrestler..." required>
       </label>
       <label class="field-label">Member 2
-        <input class="search team-input" name="member2" list="wtu-roster-names" value="${esc(editing?.member2||'')}" placeholder="Start typing a wrestlerâ€¦" required>
+        <input class="search team-input" name="member2" list="wtu-roster-names" value="${esc(editing?.member2||'')}" placeholder="Start typing a wrestler..." required>
       </label>
       <datalist id="wtu-roster-names">${roster.map(r=>`<option value="${esc(r.name)}"></option>`).join('')}</datalist>
       <label class="field-label">Tag championship
         <select class="filter team-select" name="competition" required>
-          ${tagTournaments.map(t=>`<option value="${esc(t.competition)}" ${t.competition===selectedCompetition?'selected':''}>${esc(t.competition)} â€¢ ${esc(t.division)}</option>`).join('')}
+          ${tagTournaments.map(t=>`<option value="${esc(t.competition)}" ${t.competition===selectedCompetition?'selected':''}>${esc(t.competition)} &bull; ${esc(t.division)}</option>`).join('')}
         </select>
       </label>
       <div class="team-editor-actions">
@@ -312,11 +312,11 @@ function saveTeamFromForm(form){
 function tagTeams(){
   const teams=allTagTeams();
   return `
+    ${state.teamEditor?`<div class="team-modal-backdrop"><div class="team-modal">${tagTeamEditor()}</div></div>`:''}
     <div class="section-title tag-title">
-      <div><h3>Tag Teams</h3><span>${teams.length} total â€¢ ${loadCustomTeams(state.game).length} custom</span></div>
+      <div><h3>Tag Teams</h3><span>${teams.length} total &bull; ${loadCustomTeams(state.game).length} custom</span></div>
       <button class="small-action" data-action="add-team">+ ADD TEAM</button>
     </div>
-    ${state.teamEditor?tagTeamEditor():''}
     <div class="cards">
       ${teams.map(t=>{
         const s=tagStatus(t);
@@ -409,5 +409,12 @@ document.addEventListener('input',e=>{
     }
   }
 });document.addEventListener('change',e=>{if(e.target.dataset.input==='filter'){state.filter=e.target.value;render()}});
-if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
+if(
+  'serviceWorker' in navigator &&
+  !['127.0.0.1','localhost','::1'].includes(location.hostname)
+){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
 render();

@@ -380,3 +380,25 @@ button{cursor:pointer}
 .tag-card-head h4{min-width:0;}
 .custom-pill{color:#d7c2f3;border-color:#7651a8;}
 @media(max-width:360px){.update-btn,.help{width:30px;height:30px}.topbar{gap:6px}.version{font-size:9px}}
+/* v0.3.1 - ENCODING + CUSTOM TEAM EDITOR HOTFIX */
+.update-btn::before{
+  content:"\21BB";
+  font-family:"Segoe UI Symbol","Noto Sans Symbols 2",sans-serif;
+}
+.team-modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:1000;
+  background:rgba(0,0,0,.80);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  overflow:auto;
+}
+.team-modal{
+  width:min(406px,100%);
+  max-height:calc(100vh - 32px);
+  overflow:auto;
+}
+.team-modal .team-editor{margin:0;}
