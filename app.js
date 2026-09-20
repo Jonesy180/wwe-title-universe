@@ -1,6 +1,6 @@
 const GAMES = ["2K15","2K16","2K17","2K18","2K19","2K20","2K22","2K23","2K24","2K25","2K26"];
 const app = document.getElementById('app');
-const CURRENT_VERSION='0.4.0';
+const CURRENT_VERSION='0.5.0';
 let state = { view:'home', game:null, section:'dashboard', data:null, query:'', filter:'ALL', teamEditor:null };
 
 function storageKey(game){ return `wtu:${game}:v1`; }
@@ -64,7 +64,7 @@ function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt
 function pct(a,b){return b?Math.round(a/b*100):0}
 
 async function openGame(game){
-  if(!['2K25','2K26'].includes(game)) return;
+  if(!['2K24','2K25','2K26'].includes(game)) return;
   const res=await fetch(`data/${game.toLowerCase()}.json`);
   if(!res.ok){alert(`Could not load WWE ${game} data.`);return;}
   state={...state,view:'game',game,section:'dashboard',data:await res.json(),query:'',filter:'ALL',teamEditor:null};
@@ -104,7 +104,7 @@ function header(sub=''){
   `;
 }
 function home(){
- return `<main class="shell">${header('Definitely not OTG! with suplexes.')}<section class="hero"><h2>Choose a game</h2><p>One simple engine. Eleven WWE 2K datasets. 2K25 and 2K26 are live; the older games will plug into the same structure as their data is built.</p></section><div class="grid">${GAMES.map(g=>{const ready=g==='2K25'||g==='2K26';const label=g==='2K26'?'OPEN &bull; SDH 501':g==='2K25'?'OPEN &bull; SDH 436':'DATA QUEUED';return `<button class="game-tile ${ready?'ready':''}" ${ready?'':'disabled'} data-game="${g}"><strong>WWE ${g}</strong><small>${label}</small></button>`}).join('')}</div><div class="footer">Local progress and custom teams are stored on this device &bull; v${CURRENT_VERSION}.</div></main>`
+ return `<main class="shell">${header('Definitely not OTG! with suplexes.')}<section class="hero"><h2>Choose a game</h2><p>One simple engine. Eleven WWE 2K datasets. 2K24, 2K25 and 2K26 are live; the older games will plug into the same structure as their data is built.</p></section><div class="grid">${GAMES.map(g=>{const ready=['2K24','2K25','2K26'].includes(g);const label=g==='2K26'?'OPEN &bull; SDH 501':g==='2K25'?'OPEN &bull; SDH 436':g==='2K24'?'OPEN &bull; SDH 338':'DATA QUEUED';return `<button class="game-tile ${ready?'ready':''}" ${ready?'':'disabled'} data-game="${g}"><strong>WWE ${g}</strong><small>${label}</small></button>`}).join('')}</div><div class="footer">Local progress and custom teams are stored on this device &bull; v${CURRENT_VERSION}.</div></main>`
 }
 function nav(){const items=['dashboard','roster','championships','arenas','tag teams','tournaments'];return `<div class="nav-grid">${items.map(x=>`<button class="nav-tile ${state.section===x?'active':''}" data-section="${x}">${x.replace(/\b\w/g,c=>c.toUpperCase())}</button>`).join('')}</div>`}
 function dashboard(){
