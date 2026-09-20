@@ -1,6 +1,6 @@
 const GAMES = ["2K15","2K16","2K17","2K18","2K19","2K20","2K22","2K23","2K24","2K25","2K26"];
 const app = document.getElementById('app');
-const CURRENT_VERSION='1.1.0';
+const CURRENT_VERSION='1.1.1';
 let state = { view:'home', game:null, section:'dashboard', data:null, query:'', filter:'ALL', teamEditor:null };
 
 function storageKey(game){ return `wtu:${game}:v1`; }
@@ -84,7 +84,7 @@ function header(sub=''){
   return `
     <div class="topbar">
       ${state.view==='game'
-        ? '<button class="back" data-action="home">ÔåÉ Games</button>'
+        ? '<button class="back" data-action="home">← Games</button>'
         : ''
       }
 
@@ -174,7 +174,7 @@ function home(){
     </section>
     ${status}
     <div class="legacy-line">IT'S NOT JUST A GAME...<br><b>IT'S A LEGACY</b></div>
-    <div class="footer">Local progress and custom teams stay on this device &bull; v${CURRENT_VERSION}.</div>
+    <div class="footer">Local progress and custom teams stay on this device • v${CURRENT_VERSION}.</div>
   </main>`
 }
 function nav(){const items=['dashboard','roster','championships','arenas','tag teams','tournaments'];return `<div class="nav-grid">${items.map(x=>`<button class="nav-tile ${state.section===x?'active':''}" data-section="${x}">${x.replace(/\b\w/g,c=>c.toUpperCase())}</button>`).join('')}</div>`}
@@ -201,7 +201,7 @@ function dashboard(){
       <div><span class="status-icon">T</span><b>TAG TEAMS</b><em>${ready} / ${teams.length}</em></div>
     </div>
   </section>
-  <div class="safe-note">WWE ${state.game} &bull; ${esc(d.status||'DATASET')} &bull; MISSING remains the safe default.</div>
+  <div class="safe-note">WWE ${state.game} • ${esc(d.status||'DATASET')} • MISSING remains the safe default.</div>
   <div class="legacy-line compact">IT'S NOT JUST A GAME... <b>IT'S A LEGACY</b></div>`
 }
 function roster(){
@@ -227,7 +227,7 @@ function roster(){
         class="search"
         data-input="query"
         value="${esc(state.query)}"
-        placeholder="Search wrestler, brand or titleÔÇª"
+        placeholder="Search wrestler, brand or title…"
       >
 
       <select class="filter" data-input="filter">
@@ -244,13 +244,13 @@ function roster(){
           <div>
             <strong>${esc(r.name)}</strong>
             <div class="sub">
-              ${esc(r.identity)} ÔÇó ${esc(r.brand)} ÔÇó OVR ${esc(r.ovr||'TBA')}
+              ${esc(r.identity)} • ${esc(r.brand)} • OVR ${esc(r.ovr||'TBA')}
             </div>
           </div>
 
           <div>${esc(r.gender)}</div>
           <div>${esc(r.rosterType)}</div>
-          <div>${esc(r.singlesCompetition||'ÔÇö')}</div>
+          <div>${esc(r.singlesCompetition||'—')}</div>
 
           <button
             class="status ${isDone('roster',r.name)?'done':''}"
@@ -264,7 +264,7 @@ function roster(){
     </div>
   `;
 }
-function genericUnlock(kind,items,nameKey,sub){let q=state.query.toLowerCase(),arr=items;if(q)arr=arr.filter(x=>Object.values(x).some(v=>String(v||'').toLowerCase().includes(q)));return `<div class="toolbar"><input class="search" data-input="query" value="${esc(state.query)}" placeholder="SearchÔÇª"></div><div class="list">${arr.map(x=>{let name=x[nameKey];return `<div class="row"><div><strong>${esc(name)}</strong><div class="sub">${esc(sub(x))}</div></div><div></div><div></div><div></div><button class="status ${isDone(kind,name)?'done':''}" data-toggle="${kind}" data-name="${esc(name)}">${isDone(kind,name)?'DONE':'MISSING'}</button></div>`}).join('')}</div>`}
+function genericUnlock(kind,items,nameKey,sub){let q=state.query.toLowerCase(),arr=items;if(q)arr=arr.filter(x=>Object.values(x).some(v=>String(v||'').toLowerCase().includes(q)));return `<div class="toolbar"><input class="search" data-input="query" value="${esc(state.query)}" placeholder="Search…"></div><div class="list">${arr.map(x=>{let name=x[nameKey];return `<div class="row"><div><strong>${esc(name)}</strong><div class="sub">${esc(sub(x))}</div></div><div></div><div></div><div></div><button class="status ${isDone(kind,name)?'done':''}" data-toggle="${kind}" data-name="${esc(name)}">${isDone(kind,name)?'DONE':'MISSING'}</button></div>`}).join('')}</div>`}
 function tagTeamEditor(){
   const customs=loadCustomTeams(state.game);
   const editing=state.teamEditor && state.teamEditor!=='new' ? customs.find(t=>t.id===state.teamEditor) : null;
@@ -287,7 +287,7 @@ function tagTeamEditor(){
       <datalist id="wtu-roster-names">${roster.map(r=>`<option value="${esc(r.name)}"></option>`).join('')}</datalist>
       <label class="field-label">Tag championship
         <select class="filter team-select" name="competition" required>
-          ${tagTournaments.map(t=>`<option value="${esc(t.competition)}" ${t.competition===selectedCompetition?'selected':''}>${esc(t.competition)} &bull; ${esc(t.division)}</option>`).join('')}
+          ${tagTournaments.map(t=>`<option value="${esc(t.competition)}" ${t.competition===selectedCompetition?'selected':''}>${esc(t.competition)} • ${esc(t.division)}</option>`).join('')}
         </select>
       </label>
       <div class="team-editor-actions">
@@ -324,7 +324,7 @@ function tagTeams(){
   return `
     ${state.teamEditor?`<div class="team-modal-backdrop"><div class="team-modal">${tagTeamEditor()}</div></div>`:''}
     <div class="section-title tag-title">
-      <div><h3>Tag Teams</h3><span>${teams.length} total &bull; ${loadCustomTeams(state.game).length} custom</span></div>
+      <div><h3>Tag Teams</h3><span>${teams.length} total • ${loadCustomTeams(state.game).length} custom</span></div>
       <button class="small-action" data-action="add-team">+ ADD TEAM</button>
     </div>
     <div class="cards">
@@ -341,7 +341,7 @@ function tagTeams(){
       }).join('')}
     </div>`;
 }
-function tournaments(){return `<div class="cards">${state.data.tournaments.map(t=>{const n=competitionCount(t);return `<div class="card"><h4>${esc(t.competition)}</h4><p>${esc(t.type)} ÔÇó ${esc(t.division)} ÔÇó ${n} unlocked entrants</p><p>R1: ${esc(t.round1)} ÔåÆ QF: ${esc(t.quarterFinal)} ÔåÆ SF: ${esc(t.semiFinal)} ÔåÆ Final: ${esc(t.final)}</p><p>Final arena: ${esc(t.finalArena)}</p><span class="pill">${bracketAdvice(n)}</span></div>`}).join('')}</div>`}
+function tournaments(){return `<div class="cards">${state.data.tournaments.map(t=>{const n=competitionCount(t);return `<div class="card"><h4>${esc(t.competition)}</h4><p>${esc(t.type)} • ${esc(t.division)} • ${n} unlocked entrants</p><p>R1: ${esc(t.round1)} → QF: ${esc(t.quarterFinal)} → SF: ${esc(t.semiFinal)} → Final: ${esc(t.final)}</p><p>Final arena: ${esc(t.finalArena)}</p><span class="pill">${bracketAdvice(n)}</span></div>`}).join('')}</div>`}
 function game(){
   let content='';
 
@@ -352,7 +352,7 @@ function game(){
       'championships',
       state.data.championships,
       'name',
-      x=>`${x.category} ÔÇó ${x.competition} ÔÇó ${x.division}`
+      x=>`${x.category} • ${x.competition} • ${x.division}`
     );
   }
   if(state.section==='arenas'){
@@ -360,7 +360,7 @@ function game(){
       'arenas',
       state.data.arenas,
       'name',
-      x=>`${x.category} ÔÇó ${x.unlockNote||''}`
+      x=>`${x.category} • ${x.unlockNote||''}`
     );
   }
   if(state.section==='tag teams')content=tagTeams();
@@ -369,7 +369,7 @@ function game(){
 
   return `
     <main class="shell">
-      ${header(`WWE ${state.game} ÔÇó ${state.data.status}`)}
+      ${header(`WWE ${state.game} • ${state.data.status}`)}
       ${nav()}
       ${content}
       <div class="footer">
@@ -377,7 +377,80 @@ function game(){
       </div>
     </main>
   `;
-}function render(){app.innerHTML=state.view==='home'?home():game();const f=document.querySelector('[data-input="filter"]');if(f)f.value=state.filter}
+}const UI_TEXT_FIXES=[
+  ['\u00D4\u00C7\u00F3','\u2022'],
+  ['\u00E2\u20AC\u00A2','\u2022'],
+  ['\u00D4\u00C7\u00AA','\u2026'],
+  ['\u00E2\u20AC\u00A6','\u2026'],
+  ['\u00D4\u00E5\u00C9','\u2190'],
+  ['\u00D4\u00E5\u00C6','\u2192'],
+  ['\u00E2\u2020\u2019','\u2192'],
+  ['\u00D4\u00C7\u00D6','\u2019'],
+  ['\u00E2\u20AC\u2122','\u2019'],
+  ['\u00D4\u00C7\u00FF','\u2018'],
+  ['\u00E2\u20AC\u02DC','\u2018'],
+  ['\u00D4\u00C7\u00A3','\u201C'],
+  ['\u00E2\u20AC\u0153','\u201C'],
+  ['\u00D4\u00C7\u00D8','\u201D'],
+  ['\u00D4\u00C7\u00F4','\u2013'],
+  ['\u00E2\u20AC\u201C','\u2013'],
+  ['\u00D4\u00C7\u00F6','\u2014'],
+  ['\u00E2\u20AC\u201D','\u2014'],
+  ['\u00D4\u00E4\u00F3','\u2122'],
+  ['\u00E2\u201E\u00A2','\u2122'],
+  ['\u252C\u00AB','\u00AE'],
+  ['\u00C2\u00AE','\u00AE'],
+  ['\u252C\u00AE','\u00A9'],
+  ['\u00C2\u00A9','\u00A9'],
+  ['\u251C\u00F9','\u00D7'],
+  ['\u00C3\u2014','\u00D7'],
+  ['\u251C\u00ED','\u00E1'],
+  ['\u00C3\u00A1','\u00E1'],
+  ['\u251C\u00AE','\u00E9'],
+  ['\u00C3\u00A9','\u00E9'],
+  ['\u251C\u00A1','\u00ED'],
+  ['\u00C3\u00AD','\u00ED'],
+  ['\u251C\u2502','\u00F3'],
+  ['\u00C3\u00B3','\u00F3'],
+  ['\u251C\u2551','\u00FA'],
+  ['\u00C3\u00BA','\u00FA'],
+  ['\u251C\u2592','\u00F1'],
+  ['\u00C3\u00B1','\u00F1'],
+  ['\u251C\u00C2','\u00F6'],
+  ['\u00C3\u00B6','\u00F6'],
+  ['\u251C\u255D','\u00FC'],
+  ['\u00C3\u00BC','\u00FC'],
+  ['\u251C\u00FC','\u00C1'],
+  ['\u251C\u00EB','\u00C9'],
+  ['\u00C3\u2030','\u00C9'],
+  ['\u251C\u00EC','\u00CD'],
+  ['\u251C\u00F4','\u00D3'],
+  ['\u00C3\u201C','\u00D3'],
+  ['\u251C\u00DC','\u00DA'],
+  ['\u00C3\u0161','\u00DA'],
+  ['\u251C\u00E6','\u00D1'],
+  ['\u00C3\u2018','\u00D1'],
+  ['\u251C\u00FB','\u00D6'],
+  ['\u00C3\u2013','\u00D6'],
+  ['\u251C\u00A3','\u00DC'],
+  ['\u00C3\u0153','\u00DC'],
+  ['&BULL;','\u2022'],
+  ['&bull;','\u2022'],
+  ['&#8226;','\u2022'],
+  ['&amp;bull;','\u2022'],
+  ['\\u2022','\u2022'],
+  ['\\u2026','\u2026'],
+  ['\\u2190','\u2190'],
+  ['\\u2192','\u2192']
+];
+function cleanUiText(value){
+  let s=String(value);
+  for(const [bad,good] of UI_TEXT_FIXES){
+    if(s.includes(bad)) s=s.split(bad).join(good);
+  }
+  return s;
+}
+function render(){app.innerHTML=cleanUiText(state.view==='home'?home():game());const f=document.querySelector('[data-input="filter"]');if(f)f.value=state.filter}
 
 document.addEventListener('click',e=>{const g=e.target.closest('[data-game]');if(g)openGame(g.dataset.game);const a=e.target.closest('[data-action="home"]');if(a){state={view:'home',game:null,section:'dashboard',data:null,query:'',filter:'ALL',teamEditor:null};render()}const s=e.target.closest('[data-section]');if(s){state.section=s.dataset.section;state.query='';state.filter='ALL';render()}const t=e.target.closest('[data-toggle]');if(t)setDone(t.dataset.toggle,t.dataset.name,!isDone(t.dataset.toggle,t.dataset.name));});
 document.addEventListener('click',async e=>{

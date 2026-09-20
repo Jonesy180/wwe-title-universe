@@ -1,5 +1,3 @@
 {
-  "version": "1.1.0",
-  "released": "2026-09-20",
-  "notes": "Full Deadman visual redesign with cinematic entrance, selectable game grid, live selected-game status panel and raised navigation controls. All game data, progress keys and custom teams preserved."
+  "version": "1.1.1"
 }
