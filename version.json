@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "released": "2026-09-20",
-  "notes": "Adds WWE 2K15 SDH 124 and completes all eleven WWE 2K game datasets."
+  "notes": "Full Deadman visual redesign with cinematic entrance, selectable game grid, live selected-game status panel and raised navigation controls. All game data, progress keys and custom teams preserved."
 }

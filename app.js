@@ -1,6 +1,6 @@
 const GAMES = ["2K15","2K16","2K17","2K18","2K19","2K20","2K22","2K23","2K24","2K25","2K26"];
 const app = document.getElementById('app');
-const CURRENT_VERSION='1.0.0';
+const CURRENT_VERSION='1.1.0';
 let state = { view:'home', game:null, section:'dashboard', data:null, query:'', filter:'ALL', teamEditor:null };
 
 function storageKey(game){ return `wtu:${game}:v1`; }
@@ -84,7 +84,7 @@ function header(sub=''){
   return `
     <div class="topbar">
       ${state.view==='game'
-        ? '<button class="back" data-action="home">← Games</button>'
+        ? '<button class="back" data-action="home">ÔåÉ Games</button>'
         : ''
       }
 
@@ -103,8 +103,79 @@ function header(sub=''){
     </div>
   `;
 }
+function homeDone(game,kind,name){
+  return loadProgress(game)?.[kind]?.[name]==='DONE';
+}
+function homeTagStatus(game,t){
+  const a=homeDone(game,'roster',t.member1),b=homeDone(game,'roster',t.member2);
+  return a&&b?'READY':(a||b?'WAITING FOR 1':'LOCKED');
+}
+async function selectHomeGame(game,quiet=false){
+  if(!GAMES.includes(game))return;
+  state.homeGame=game;
+  state.homeLoading=true;
+  if(!quiet)render();
+  try{
+    const res=await fetch(`data/${game.toLowerCase()}.json`);
+    if(!res.ok)throw new Error('load failed');
+    state.homeData=await res.json();
+    state.homeDataGame=game;
+  }catch{
+    state.homeData=null;
+    state.homeDataGame=null;
+  }
+  state.homeLoading=false;
+  render();
+}
 function home(){
- return `<main class="shell">${header('Definitely not OTG! with suplexes.')}<section class="hero"><h2>Choose a game</h2><p>One simple engine. Eleven WWE 2K datasets. Every console WWE 2K game from 2K15 through 2K26 is now live.</p></section><div class="grid">${GAMES.map(g=>{const ready=true;const label=g==='2K26'?'OPEN &bull; SDH 501':g==='2K25'?'OPEN &bull; SDH 436':g==='2K24'?'OPEN &bull; SDH 338':g==='2K23'?'OPEN &bull; SDH 250':g==='2K22'?'OPEN &bull; SDH 228':g==='2K20'?'OPEN &bull; SDH 266':g==='2K19'?'OPEN &bull; SDH 252':g==='2K18'?'OPEN &bull; SDH 220':g==='2K17'?'OPEN &bull; SDH 183':g==='2K16'?'OPEN &bull; SDH 187':g==='2K15'?'OPEN &bull; SDH 124':'OPEN';return `<button class="game-tile ready" data-game="${g}"><strong>WWE ${g}</strong><small>${label}</small></button>`}).join('')}</div><div class="footer">Local progress and custom teams are stored on this device &bull; v${CURRENT_VERSION}.</div></main>`
+  const counts={"2K15":124,"2K16":187,"2K17":183,"2K18":220,"2K19":252,"2K20":266,"2K22":228,"2K23":250,"2K24":338,"2K25":436,"2K26":501};
+  const selected=state.homeGame||'2K15';
+  const d=state.homeDataGame===selected?state.homeData:null;
+  if(!d&&!state.homeLoading){state.homeLoading=true;setTimeout(()=>selectHomeGame(selected,true),0)}
+  let status='';
+  if(d){
+    const rd=d.roster.filter(r=>homeDone(selected,'roster',r.name)).length;
+    const cd=d.championships.filter(x=>homeDone(selected,'championships',x.name)).length;
+    const ad=d.arenas.filter(x=>homeDone(selected,'arenas',x.name)).length;
+    const teams=[...d.tagTeams,...loadCustomTeams(selected)];
+    const ready=teams.filter(t=>homeTagStatus(selected,t)==='READY').length;
+    const rp=pct(rd,d.roster.length);
+    status=`<section class="status-panel home-status-panel">
+      <div class="status-main">
+        <div class="status-game-logo"><span class="logo-wwe">WWE</span><span class="logo-2k">2K</span><span class="logo-year">${selected.slice(2)}</span></div>
+        <div class="status-kicker">GAME STATUS</div>
+        <div class="status-count">${rd} / ${d.roster.length}</div>
+        <div class="progress-track"><span style="width:${rp}%"></span></div>
+        <div class="progress-pct">${rp}% COMPLETE</div>
+      </div>
+      <div class="status-breakdown">
+        <div><span class="status-icon">R</span><b>ROSTER</b><em>${rd} / ${d.roster.length}</em></div>
+        <div><span class="status-icon">C</span><b>CHAMPIONSHIPS</b><em>${cd} / ${d.championships.length}</em></div>
+        <div><span class="status-icon">A</span><b>ARENAS</b><em>${ad} / ${d.arenas.length}</em></div>
+        <div><span class="status-icon">T</span><b>TAG TEAMS</b><em>${ready} / ${teams.length}</em></div>
+      </div>
+    </section>
+    <div class="home-nav">
+      ${['roster','championships','arenas','tag teams','tournaments'].map(x=>`<button class="nav-tile" data-home-section="${x}">${x==='championships'?'Titles':x.replace(/\b\w/g,c=>c.toUpperCase())}</button>`).join('')}
+    </div>`;
+  }else{
+    status=`<section class="home-status-loading">LOADING WWE ${selected} STATUS...</section>`;
+  }
+  return `<main class="shell home-shell">
+    ${header('TRACK '+String.fromCharCode(8226)+' COLLECT '+String.fromCharCode(8226)+' COMPLETE')}
+    <section class="deadman-stage" aria-label="Deadman entrance inspired background">
+      <div class="stage-vignette"></div>
+      <div class="stage-quote stage-quote-left">SOME LEGENDS<br>NEVER FADE</div>
+      <div class="stage-quote stage-quote-right">THE DEADMAN<br>WALKS FOREVER</div>
+    </section>
+    <section class="selector-panel">
+      <div class="selector-label"><span></span>SELECT A GAME<span></span></div>
+      <div class="grid">${GAMES.map(g=>{const year=g.slice(2);return `<button class="game-tile ready ${g===selected?'home-selected':''}" data-home-game="${g}"><strong><span class="logo-wwe">WWE</span><span class="logo-2k">2K</span><span class="logo-year">${year}</span></strong><small>SDH ${counts[g]||''}</small></button>`}).join('')}</div>
+    </section>
+    ${status}
+    <div class="legacy-line">IT'S NOT JUST A GAME...<br><b>IT'S A LEGACY</b></div>
+    <div class="footer">Local progress and custom teams stay on this device &bull; v${CURRENT_VERSION}.</div>
+  </main>`
 }
 function nav(){const items=['dashboard','roster','championships','arenas','tag teams','tournaments'];return `<div class="nav-grid">${items.map(x=>`<button class="nav-tile ${state.section===x?'active':''}" data-section="${x}">${x.replace(/\b\w/g,c=>c.toUpperCase())}</button>`).join('')}</div>`}
 function dashboard(){
@@ -114,7 +185,24 @@ function dashboard(){
   const ad=d.arenas.filter(x=>isDone('arenas',x.name)).length;
   const teams=allTagTeams();
   const ready=teams.filter(x=>tagStatus(x)==='READY').length;
-  return `<div class="notice">WWE ${state.game} &bull; ${esc(d.status||'DATASET')}. MISSING is deliberately the safe default.</div><div class="stats"><div class="stat"><b>${rd}/${d.roster.length}</b><span>Roster DONE &bull; ${pct(rd,d.roster.length)}%</span></div><div class="stat"><b>${cd}/${d.championships.length}</b><span>Championships DONE</span></div><div class="stat"><b>${ad}/${d.arenas.length}</b><span>Arenas DONE</span></div><div class="stat"><b>${ready}/${teams.length}</b><span>Tag teams READY</span></div></div>`
+  const rp=pct(rd,d.roster.length);
+  return `<section class="status-panel">
+    <div class="status-main">
+      <div class="status-game-logo"><span class="logo-wwe">WWE</span><span class="logo-2k">2K</span><span class="logo-year">${state.game.slice(2)}</span></div>
+      <div class="status-kicker">GAME STATUS</div>
+      <div class="status-count">${rd} / ${d.roster.length}</div>
+      <div class="progress-track"><span style="width:${rp}%"></span></div>
+      <div class="progress-pct">${rp}% COMPLETE</div>
+    </div>
+    <div class="status-breakdown">
+      <div><span class="status-icon">R</span><b>ROSTER</b><em>${rd} / ${d.roster.length}</em></div>
+      <div><span class="status-icon">C</span><b>CHAMPIONSHIPS</b><em>${cd} / ${d.championships.length}</em></div>
+      <div><span class="status-icon">A</span><b>ARENAS</b><em>${ad} / ${d.arenas.length}</em></div>
+      <div><span class="status-icon">T</span><b>TAG TEAMS</b><em>${ready} / ${teams.length}</em></div>
+    </div>
+  </section>
+  <div class="safe-note">WWE ${state.game} &bull; ${esc(d.status||'DATASET')} &bull; MISSING remains the safe default.</div>
+  <div class="legacy-line compact">IT'S NOT JUST A GAME... <b>IT'S A LEGACY</b></div>`
 }
 function roster(){
   let arr=state.data.roster;
@@ -139,7 +227,7 @@ function roster(){
         class="search"
         data-input="query"
         value="${esc(state.query)}"
-        placeholder="Search wrestler, brand or title…"
+        placeholder="Search wrestler, brand or titleÔÇª"
       >
 
       <select class="filter" data-input="filter">
@@ -156,13 +244,13 @@ function roster(){
           <div>
             <strong>${esc(r.name)}</strong>
             <div class="sub">
-              ${esc(r.identity)} • ${esc(r.brand)} • OVR ${esc(r.ovr||'TBA')}
+              ${esc(r.identity)} ÔÇó ${esc(r.brand)} ÔÇó OVR ${esc(r.ovr||'TBA')}
             </div>
           </div>
 
           <div>${esc(r.gender)}</div>
           <div>${esc(r.rosterType)}</div>
-          <div>${esc(r.singlesCompetition||'—')}</div>
+          <div>${esc(r.singlesCompetition||'ÔÇö')}</div>
 
           <button
             class="status ${isDone('roster',r.name)?'done':''}"
@@ -176,7 +264,7 @@ function roster(){
     </div>
   `;
 }
-function genericUnlock(kind,items,nameKey,sub){let q=state.query.toLowerCase(),arr=items;if(q)arr=arr.filter(x=>Object.values(x).some(v=>String(v||'').toLowerCase().includes(q)));return `<div class="toolbar"><input class="search" data-input="query" value="${esc(state.query)}" placeholder="Search…"></div><div class="list">${arr.map(x=>{let name=x[nameKey];return `<div class="row"><div><strong>${esc(name)}</strong><div class="sub">${esc(sub(x))}</div></div><div></div><div></div><div></div><button class="status ${isDone(kind,name)?'done':''}" data-toggle="${kind}" data-name="${esc(name)}">${isDone(kind,name)?'DONE':'MISSING'}</button></div>`}).join('')}</div>`}
+function genericUnlock(kind,items,nameKey,sub){let q=state.query.toLowerCase(),arr=items;if(q)arr=arr.filter(x=>Object.values(x).some(v=>String(v||'').toLowerCase().includes(q)));return `<div class="toolbar"><input class="search" data-input="query" value="${esc(state.query)}" placeholder="SearchÔÇª"></div><div class="list">${arr.map(x=>{let name=x[nameKey];return `<div class="row"><div><strong>${esc(name)}</strong><div class="sub">${esc(sub(x))}</div></div><div></div><div></div><div></div><button class="status ${isDone(kind,name)?'done':''}" data-toggle="${kind}" data-name="${esc(name)}">${isDone(kind,name)?'DONE':'MISSING'}</button></div>`}).join('')}</div>`}
 function tagTeamEditor(){
   const customs=loadCustomTeams(state.game);
   const editing=state.teamEditor && state.teamEditor!=='new' ? customs.find(t=>t.id===state.teamEditor) : null;
@@ -253,7 +341,7 @@ function tagTeams(){
       }).join('')}
     </div>`;
 }
-function tournaments(){return `<div class="cards">${state.data.tournaments.map(t=>{const n=competitionCount(t);return `<div class="card"><h4>${esc(t.competition)}</h4><p>${esc(t.type)} • ${esc(t.division)} • ${n} unlocked entrants</p><p>R1: ${esc(t.round1)} → QF: ${esc(t.quarterFinal)} → SF: ${esc(t.semiFinal)} → Final: ${esc(t.final)}</p><p>Final arena: ${esc(t.finalArena)}</p><span class="pill">${bracketAdvice(n)}</span></div>`}).join('')}</div>`}
+function tournaments(){return `<div class="cards">${state.data.tournaments.map(t=>{const n=competitionCount(t);return `<div class="card"><h4>${esc(t.competition)}</h4><p>${esc(t.type)} ÔÇó ${esc(t.division)} ÔÇó ${n} unlocked entrants</p><p>R1: ${esc(t.round1)} ÔåÆ QF: ${esc(t.quarterFinal)} ÔåÆ SF: ${esc(t.semiFinal)} ÔåÆ Final: ${esc(t.final)}</p><p>Final arena: ${esc(t.finalArena)}</p><span class="pill">${bracketAdvice(n)}</span></div>`}).join('')}</div>`}
 function game(){
   let content='';
 
@@ -264,7 +352,7 @@ function game(){
       'championships',
       state.data.championships,
       'name',
-      x=>`${x.category} • ${x.competition} • ${x.division}`
+      x=>`${x.category} ÔÇó ${x.competition} ÔÇó ${x.division}`
     );
   }
   if(state.section==='arenas'){
@@ -272,7 +360,7 @@ function game(){
       'arenas',
       state.data.arenas,
       'name',
-      x=>`${x.category} • ${x.unlockNote||''}`
+      x=>`${x.category} ÔÇó ${x.unlockNote||''}`
     );
   }
   if(state.section==='tag teams')content=tagTeams();
@@ -281,7 +369,7 @@ function game(){
 
   return `
     <main class="shell">
-      ${header(`WWE ${state.game} • ${state.data.status}`)}
+      ${header(`WWE ${state.game} ÔÇó ${state.data.status}`)}
       ${nav()}
       ${content}
       <div class="footer">
@@ -339,4 +427,22 @@ if(
     navigator.serviceWorker.register('sw.js').catch(()=>{});
   });
 }
-render();
+
+document.addEventListener('click',async e=>{
+  const hg=e.target.closest('[data-home-game]');
+  if(hg){
+    e.preventDefault();
+    await selectHomeGame(hg.dataset.homeGame);
+    return;
+  }
+  const hs=e.target.closest('[data-home-section]');
+  if(hs){
+    e.preventDefault();
+    const game=state.homeGame||'2K15';
+    await openGame(game);
+    state.section=hs.dataset.homeSection;
+    state.query='';
+    state.filter='ALL';
+    render();
+  }
+});render();
