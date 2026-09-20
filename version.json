@@ -1,5 +1,5 @@
 {
-  "version": "0.6.0",
+  "version": "0.7.0",
   "released": "2026-09-20",
-  "notes": "Adds the WWE 2K23 SDH 250 dataset as the fourth live game, with separate progress and custom teams."
+  "notes": "Adds the WWE 2K22 SDH 228 dataset as the fifth live game, with separate progress and custom teams."
 }
