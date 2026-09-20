@@ -148,7 +148,7 @@ button{cursor:pointer}
 
 .game-tile:disabled{
   opacity:.62;
-  cursor:default;s
+  cursor:default;
 }
 
 /* SECTIONS */
@@ -358,3 +358,25 @@ button{cursor:pointer}
     font-size:19px;
   }
 }
+/* v0.3.0 â€” CUSTOM TAG TEAMS + UPDATER */
+.update-btn{
+  width:32px;height:32px;padding:0;border:1px solid #7651a8;background:#171321;color:#d7c2f3;
+  border-radius:10px;font-weight:800;font-size:17px;line-height:1;box-shadow:0 0 12px rgba(118,81,168,.18);
+}
+.small-action,.mini-btn{
+  border:1px solid #7651a8;background:#171321;color:#e7dbf7;border-radius:9px;padding:7px 9px;font-size:10px;font-weight:700;
+}
+.mini-btn{border-color:var(--line);background:#0f151d;color:var(--muted);padding:6px 8px;}
+.danger-btn{border-color:#62313b;color:#ffb4c0;background:#241319;}
+.tag-title{align-items:center;}
+.tag-title>div{min-width:0;}
+.tag-title span{display:block;margin-top:2px;}
+.team-editor{background:linear-gradient(180deg,#171321,#12101a);border:1px solid #7651a8;border-radius:14px;padding:12px;box-shadow:0 0 16px rgba(118,81,168,.13);margin-bottom:10px;}
+.team-editor-title{font-size:15px;font-weight:800;margin-bottom:9px;}
+.field-label{display:block;color:var(--muted);font-size:10px;margin-top:8px;}
+.team-input,.team-select{width:100%;margin-top:4px;}
+.team-editor-actions,.card-actions{display:flex;gap:7px;margin-top:10px;}
+.tag-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.tag-card-head h4{min-width:0;}
+.custom-pill{color:#d7c2f3;border-color:#7651a8;}
+@media(max-width:360px){.update-btn,.help{width:30px;height:30px}.topbar{gap:6px}.version{font-size:9px}}
