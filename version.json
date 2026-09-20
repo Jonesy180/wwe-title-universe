@@ -1,5 +1,5 @@
 {
-  "version": "0.8.0",
+  "version": "0.9.0",
   "released": "2026-09-20",
-  "notes": "Adds the WWE 2K20 SDH 266 dataset as the sixth live game, with separate progress and custom teams."
+  "notes": "Adds WWE 2K19 SDH 252 as the seventh live game and alphabetizes the WWE 2K20 roster display data."
 }
