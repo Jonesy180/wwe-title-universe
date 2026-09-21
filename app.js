@@ -1,6 +1,6 @@
 const GAMES = ["2K15","2K16","2K17","2K18","2K19","2K20","2K22","2K23","2K24","2K25","2K26"];
 const app = document.getElementById('app');
-const CURRENT_VERSION='1.1.1';
+const CURRENT_VERSION='1.3.1';
 let state = { view:'home', game:null, section:'dashboard', data:null, query:'', filter:'ALL', teamEditor:null };
 
 function storageKey(game){ return `wtu:${game}:v1`; }
@@ -324,7 +324,7 @@ function tagTeams(){
   return `
     ${state.teamEditor?`<div class="team-modal-backdrop"><div class="team-modal">${tagTeamEditor()}</div></div>`:''}
     <div class="section-title tag-title">
-      <div><h3>Tag Teams</h3><span>${teams.length} total • ${loadCustomTeams(state.game).length} custom</span></div>
+      <div><h3>Tag Teams</h3><span>${teams.length} total &bull; ${loadCustomTeams(state.game).length} custom</span></div>
       <button class="small-action" data-action="add-team">+ ADD TEAM</button>
     </div>
     <div class="cards">
@@ -341,7 +341,425 @@ function tagTeams(){
       }).join('')}
     </div>`;
 }
-function tournaments(){return `<div class="cards">${state.data.tournaments.map(t=>{const n=competitionCount(t);return `<div class="card"><h4>${esc(t.competition)}</h4><p>${esc(t.type)} • ${esc(t.division)} • ${n} unlocked entrants</p><p>R1: ${esc(t.round1)} → QF: ${esc(t.quarterFinal)} → SF: ${esc(t.semiFinal)} → Final: ${esc(t.final)}</p><p>Final arena: ${esc(t.finalArena)}</p><span class="pill">${bracketAdvice(n)}</span></div>`}).join('')}</div>`}
+// === WTU CHAOS TOURNAMENT ENGINE v1 ===
+const CHAOS_TOURNAMENT_STORE='v1';
+function tournamentStoreKey(game){return `wtu:${game}:tournament-runs:${CHAOS_TOURNAMENT_STORE}`}
+function loadTournamentRuns(){
+  try{return JSON.parse(localStorage.getItem(tournamentStoreKey(state.game))||'{}')}catch{return{}}
+}
+function saveTournamentRuns(runs){localStorage.setItem(tournamentStoreKey(state.game),JSON.stringify(runs))}
+function tournamentKey(t){return t?._customId?`CUSTOM||${t._customId}`:[t.type||'',t.division||'',t.competition||''].join('||')}
+function tournamentByKey(key){
+  const builtIn=state.data.tournaments.find(t=>tournamentKey(t)===key);
+  if(builtIn)return builtIn;
+  return loadCustomTournamentDefs().find(t=>tournamentKey(t)===key)||null;
+}
+function shuffleCopy(items){
+  const a=[...items];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}
+  return a;
+}
+function nextBracketSize(n){let size=2;while(size<n)size*=2;return size}
+function competitionEntrants(t){
+  if(Array.isArray(t.customEntrants))return [...t.customEntrants];
+  if(t.type==='Tag'){
+    return allTagTeams()
+      .filter(x=>x.competition===t.competition && tagStatus(x)==='READY')
+      .map(x=>x.team);
+  }
+  return state.data.roster
+    .filter(r=>r.tournamentEligible && r.gender===t.division && r.singlesCompetition===t.competition && isDone('roster',r.name))
+    .map(r=>r.name);
+}
+function explicitChaosMatchTypes(t){
+  const mt=state.data.matchTypes;
+  if(Array.isArray(mt))return mt;
+  if(!mt||typeof mt!=='object')return [];
+  const keys=t.type==='Tag'&&t.division==='Mixed'
+    ? ['mixedTag','mixed-tag','mixed_tag','mixed']
+    : t.type==='Tag'
+      ? ['tag','Tag','tags']
+      : ['singles','single','Singles','Singles'];
+  for(const key of keys){if(Array.isArray(mt[key])&&mt[key].length)return mt[key]}
+  return [];
+}
+function chaosMatchPool(t){
+  const fields=['round1','quarterFinal','semiFinal','final'];
+  const gamePool=(state.data.tournaments||[])
+    .filter(x=>x.type===t.type && !(t.type==='Tag'&&t.division==='Mixed') || (t.type==='Tag'&&t.division==='Mixed'&&String(x.division||'').toLowerCase()==='mixed'))
+    .flatMap(x=>fields.map(f=>String(x[f]||'').trim()))
+    .filter(x=>x && !/^(wait|tba|bye)$/i.test(x));
+  const explicit=explicitChaosMatchTypes(t);
+  const pool=[...new Set([...explicit,...gamePool].map(x=>String(x).trim()).filter(Boolean))];
+  if(pool.length)return pool;
+  if(t.type==='Tag'&&t.division==='Mixed')return ['Mixed Tag'];
+  return [t.type==='Tag'?'Normal Tag':'Normal'];
+}
+function randomChaosType(t,previous=''){
+  const pool=chaosMatchPool(t);
+  const choices=pool.length>1?pool.filter(x=>x!==previous):pool;
+  return choices[Math.floor(Math.random()*choices.length)]||pool[0];
+}
+function chaosRoundName(index,totalRounds){
+  const remaining=totalRounds-index;
+  if(remaining===1)return 'Final';
+  if(remaining===2)return 'Semifinals';
+  if(remaining===3)return 'Quarterfinals';
+  return `Round ${index+1}`;
+}
+function buildChaosRound(t,index,totalRounds,pairs){
+  return {
+    name:chaosRoundName(index,totalRounds),
+    matches:pairs.map((pair,i)=>{
+      const a=pair[0]||null,b=pair[1]||null;
+      const bye=!a||!b;
+      return {
+        id:`r${index}m${i}`,
+        a,b,
+        winner:bye?(a||b):null,
+        matchType:bye?'BYE':randomChaosType(t)
+      };
+    })
+  };
+}
+function startChaosTournament(key){
+  const t=tournamentByKey(key);
+  if(!t)return;
+  const entrants=shuffleCopy(competitionEntrants(t));
+  if(entrants.length<2){alert('At least two eligible entrants are needed to start this tournament.');return}
+  const bracketSize=nextBracketSize(entrants.length);
+  const byeCount=bracketSize-entrants.length;
+  const byeEntrants=entrants.slice(0,byeCount);
+  const remaining=entrants.slice(byeCount);
+  let pairs=byeEntrants.map(name=>Math.random()<.5?[name,null]:[null,name]);
+  for(let i=0;i<remaining.length;i+=2)pairs.push([remaining[i],remaining[i+1]]);
+  pairs=shuffleCopy(pairs);
+  const totalRounds=Math.log2(bracketSize);
+  const run={
+    key,
+    competition:t.competition,
+    type:t.type,
+    division:t.division,
+    createdAt:new Date().toISOString(),
+    status:'ACTIVE',
+    entrantCount:entrants.length,
+    bracketSize,
+    byeCount,
+    entrants:[...entrants],
+    totalRounds,
+    currentRound:0,
+    rounds:[buildChaosRound(t,0,totalRounds,pairs)],
+    champion:null
+  };
+  const runs=loadTournamentRuns();
+  runs[key]=run;
+  saveTournamentRuns(runs);
+  state.activeTournamentKey=key;
+  render();
+}
+function setChaosWinner(key,matchId,winner){
+  const runs=loadTournamentRuns(),run=runs[key];
+  if(!run||run.status!=='ACTIVE')return;
+  const round=run.rounds[run.currentRound],match=round?.matches.find(m=>m.id===matchId);
+  if(!match||match.matchType==='BYE'||![match.a,match.b].includes(winner))return;
+  match.winner=winner;
+  saveTournamentRuns(runs);
+  render();
+}
+function rerollChaosMatch(key,matchId){
+  const runs=loadTournamentRuns(),run=runs[key],t=tournamentByKey(key);
+  if(!run||!t||run.status!=='ACTIVE')return;
+  const match=run.rounds[run.currentRound]?.matches.find(m=>m.id===matchId);
+  if(!match||match.matchType==='BYE')return;
+  match.matchType=randomChaosType(t,match.matchType);
+  saveTournamentRuns(runs);
+  render();
+}
+function advanceChaosTournament(key){
+  const runs=loadTournamentRuns(),run=runs[key],t=tournamentByKey(key);
+  if(!run||!t||run.status!=='ACTIVE')return;
+  const round=run.rounds[run.currentRound];
+  if(!round||round.matches.some(m=>!m.winner))return;
+  if(run.currentRound===run.totalRounds-1){
+    run.status='COMPLETE';
+    run.champion=round.matches[0].winner;
+    run.completedAt=new Date().toISOString();
+    saveTournamentRuns(runs);
+    render();
+    return;
+  }
+  const winners=round.matches.map(m=>m.winner);
+  const pairs=[];
+  for(let i=0;i<winners.length;i+=2)pairs.push([winners[i],winners[i+1]]);
+  const nextIndex=run.currentRound+1;
+  run.rounds.push(buildChaosRound(t,nextIndex,run.totalRounds,pairs));
+  run.currentRound=nextIndex;
+  saveTournamentRuns(runs);
+  render();
+}
+function abandonChaosTournament(key){
+  const runs=loadTournamentRuns(),run=runs[key];
+  if(!run)return;
+  if(!confirm(`Abandon the ${run.competition} CHAOS tournament?`))return;
+  delete runs[key];
+  saveTournamentRuns(runs);
+  state.activeTournamentKey=null;
+  render();
+}
+function chaosMatchCard(key,match,index){
+  if(match.matchType==='BYE'){
+    const adv=match.winner||match.a||match.b;
+    return `<div class="chaos-match bye-match"><div class="chaos-match-head"><b>Match ${index+1}</b><span class="pill">BYE</span></div><div class="bye-advance">${esc(adv)} advances automatically</div></div>`;
+  }
+  const aSelected=match.winner===match.a?' selected':'';
+  const bSelected=match.winner===match.b?' selected':'';
+  return `<div class="chaos-match">
+    <div class="chaos-match-head"><b>Match ${index+1}</b><button class="mini-btn" data-chaos-reroll="${esc(key)}" data-chaos-match="${esc(match.id)}">REROLL TYPE</button></div>
+    <div class="chaos-match-type">${esc(match.matchType)}</div>
+    <div class="chaos-versus">
+      <button class="chaos-entrant${aSelected}" data-chaos-winner="${esc(key)}" data-chaos-match="${esc(match.id)}" data-chaos-name="${esc(match.a)}">${esc(match.a)}</button>
+      <span>VS</span>
+      <button class="chaos-entrant${bSelected}" data-chaos-winner="${esc(key)}" data-chaos-match="${esc(match.id)}" data-chaos-name="${esc(match.b)}">${esc(match.b)}</button>
+    </div>
+    ${match.winner?`<div class="chaos-winner">WINNER: ${esc(match.winner)}</div>`:''}
+  </div>`;
+}
+function chaosTournamentDetail(t,run){
+  const key=tournamentKey(t);
+  if(!run)return '';
+  const venue=t.finalArena?` &bull; Venue: ${esc(t.finalArena)}`:'';
+  const custom=t._customId?'<span class="pill custom-pill">CUSTOM</span>':'';
+  if(run.status==='COMPLETE'){
+    return `<div class="chaos-detail">
+      <div class="section-title"><div><h3>${esc(t.competition)}</h3><span>CHAOS tournament complete ${custom}</span></div><button class="mini-btn" data-chaos-list>BACK</button></div>
+      <div class="chaos-champion"><span>CHAMPION</span><strong>${esc(run.champion||'TBA')}</strong></div>
+      <div class="chaos-meta">${run.entrantCount} entrants &bull; ${run.byeCount} ${run.byeCount===1?'bye':'byes'} &bull; ${run.bracketSize}-slot draw${venue}</div>
+      <div class="chaos-actions"><button class="small-action" data-chaos-start="${esc(key)}">START NEW CHAOS</button><button class="mini-btn danger-btn" data-chaos-abandon="${esc(key)}">CLEAR RESULT</button></div>
+    </div>`;
+  }
+  const round=run.rounds[run.currentRound];
+  const complete=round.matches.every(m=>m.winner);
+  const finalRound=run.currentRound===run.totalRounds-1;
+  const unresolved=round.matches.filter(m=>!m.winner).length;
+  return `<div class="chaos-detail">
+    <div class="section-title"><div><h3>${esc(t.competition)}</h3><span>CHAOS &bull; ${esc(round.name)} &bull; ${run.currentRound+1}/${run.totalRounds} ${custom}</span></div><button class="mini-btn" data-chaos-list>BACK</button></div>
+    <div class="chaos-meta">${run.entrantCount} frozen entrants &bull; ${run.byeCount} ${run.byeCount===1?'bye':'byes'} &bull; ${unresolved} match${unresolved===1?'':'es'} awaiting result${venue}</div>
+    <div class="chaos-match-list">${round.matches.map((m,i)=>chaosMatchCard(key,m,i)).join('')}</div>
+    ${complete?`<button class="chaos-advance" data-chaos-advance="${esc(key)}">${finalRound?'CROWN CHAMPION':'ADVANCE TO '+esc(chaosRoundName(run.currentRound+1,run.totalRounds)).toUpperCase()}</button>`:''}
+    <button class="mini-btn danger-btn chaos-abandon" data-chaos-abandon="${esc(key)}">ABANDON TOURNAMENT</button>
+  </div>`;
+}
+// === WTU CUSTOM CHAOS TOURNAMENT BUILDER v1 ===
+const CUSTOM_TOURNAMENT_STORE='v1';
+let customTournamentDraft=null;
+function customTournamentDefsKey(game){return `wtu:${game}:custom-tournaments:${CUSTOM_TOURNAMENT_STORE}`}
+function loadCustomTournamentDefs(){
+  try{return JSON.parse(localStorage.getItem(customTournamentDefsKey(state.game))||'[]')}catch{return[]}
+}
+function saveCustomTournamentDefs(defs){localStorage.setItem(customTournamentDefsKey(state.game),JSON.stringify(defs))}
+function newCustomTournamentId(){
+  if(globalThis.crypto?.randomUUID)return crypto.randomUUID();
+  return `ct-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
+}
+function gameSupportsMixedTag(){
+  const caps=state.data.capabilities||{};
+  if(caps.mixedTag===true||caps.mixedTagTeam===true)return true;
+  const mt=state.data.matchTypes;
+  if(mt&&typeof mt==='object'&&!Array.isArray(mt)){
+    for(const key of ['mixedTag','mixed-tag','mixed_tag','mixed']){
+      if(Array.isArray(mt[key])&&mt[key].length)return true;
+    }
+  }
+  return (state.data.tournaments||[]).some(t=>t.type==='Tag'&&String(t.division||'').toLowerCase()==='mixed');
+}
+function customTournamentModeOptions(){
+  const options=[
+    ['SINGLES_MALE','Male Singles'],
+    ['SINGLES_FEMALE','Female Singles'],
+    ['TAG_MALE','Male Tag'],
+    ['TAG_FEMALE','Female Tag']
+  ];
+  if(gameSupportsMixedTag())options.push(['TAG_MIXED','Mixed Tag']);
+  return options;
+}
+function customTournamentModeParts(mode){
+  if(mode==='SINGLES_FEMALE')return {type:'Singles',division:'Female',label:'Female Singles'};
+  if(mode==='TAG_MALE')return {type:'Tag',division:'Male',label:'Male Tag'};
+  if(mode==='TAG_FEMALE')return {type:'Tag',division:'Female',label:'Female Tag'};
+  if(mode==='TAG_MIXED')return {type:'Tag',division:'Mixed',label:'Mixed Tag'};
+  return {type:'Singles',division:'Male',label:'Male Singles'};
+}
+function customTournamentModeFromDef(t){
+  if(t.type==='Tag'&&t.division==='Mixed')return 'TAG_MIXED';
+  if(t.type==='Tag'&&t.division==='Female')return 'TAG_FEMALE';
+  if(t.type==='Tag')return 'TAG_MALE';
+  if(t.division==='Female')return 'SINGLES_FEMALE';
+  return 'SINGLES_MALE';
+}
+function openCustomTournamentBuilder(){
+  const arenas=state.data.arenas||[];
+  customTournamentDraft={name:'',mode:'SINGLES_MALE',arena:arenas[0]?.name||'',selected:[]};
+  render();
+}
+function closeCustomTournamentBuilder(){customTournamentDraft=null;render()}
+function customTournamentTeamDivision(team){
+  const declared=String(team.division||team.pairingBucket||'').toLowerCase();
+  if(declared.includes('mixed'))return 'Mixed';
+  const roster=new Map((state.data.roster||[]).map(r=>[r.name,r.gender]));
+  const g1=roster.get(team.member1),g2=roster.get(team.member2);
+  if(g1==='Male'&&g2==='Male')return 'Male';
+  if(g1==='Female'&&g2==='Female')return 'Female';
+  if((g1==='Male'&&g2==='Female')||(g1==='Female'&&g2==='Male'))return 'Mixed';
+  if(declared.includes('female')||declared.includes('women'))return 'Female';
+  if(declared.includes('male')||declared.includes('men'))return 'Male';
+  return '';
+}
+function customTournamentChoices(){
+  if(!customTournamentDraft)return [];
+  const mode=customTournamentModeParts(customTournamentDraft.mode);
+  if(mode.type==='Tag'){
+    return allTagTeams()
+      .filter(t=>customTournamentTeamDivision(t)===mode.division)
+      .map(t=>({
+        value:t.team,
+        title:t.team,
+        subtitle:`${t.member1} + ${t.member2}`,
+        status:tagStatus(t),
+        search:`${t.team} ${t.member1} ${t.member2}`.toLowerCase()
+      }))
+      .sort((a,b)=>a.title.localeCompare(b.title));
+  }
+  return (state.data.roster||[])
+    .filter(r=>r.gender===mode.division)
+    .map(r=>({
+      value:r.name,
+      title:r.name,
+      subtitle:'',
+      status:isDone('roster',r.name)?'DONE':'MISSING',
+      search:r.name.toLowerCase()
+    }))
+    .sort((a,b)=>a.title.localeCompare(b.title));
+}
+function customTournamentStatusClass(status){
+  return ['DONE','READY'].includes(status)?'good':status==='WAITING FOR 1'?'warn':'bad';
+}
+function customTournamentBuilder(){
+  if(!customTournamentDraft)return '';
+  const arenas=(state.data.arenas||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+  const selected=new Set(customTournamentDraft.selected||[]);
+  const choices=customTournamentChoices();
+  const mode=customTournamentModeParts(customTournamentDraft.mode);
+  const noun=mode.type==='Tag'?'TEAMS':'WRESTLERS';
+  return `<div class="team-modal-backdrop custom-tournament-backdrop">
+    <div class="team-modal custom-tournament-modal">
+      <div class="custom-builder-head"><div><h3>CREATE CUSTOM CHAOS</h3><span>Pick the entrants. Pick the venue. CHAOS does the rest.</span></div><button class="mini-btn" data-custom-close>CLOSE</button></div>
+      <label class="field-label">TOURNAMENT NAME</label>
+      <input class="team-input" data-custom-name maxlength="60" value="${esc(customTournamentDraft.name||'')}" placeholder="e.g. Dad's Ridiculous Cup">
+      <div class="custom-builder-grid">
+        <div><label class="field-label">DIVISION / FORMAT</label><select class="team-select" data-custom-mode>${customTournamentModeOptions().map(([value,label])=>`<option value="${value}" ${customTournamentDraft.mode===value?'selected':''}>${label}</option>`).join('')}</select></div>
+        <div><label class="field-label">VENUE</label><select class="team-select" data-custom-arena>${arenas.map(a=>`<option value="${esc(a.name)}" ${a.name===customTournamentDraft.arena?'selected':''}>${esc(a.name)}${isDone('arenas',a.name)?' - DONE':' - MISSING'}</option>`).join('')}</select></div>
+      </div>
+      <label class="field-label">${noun}</label>
+      <input class="team-input" data-custom-search placeholder="Search ${mode.type==='Tag'?'teams':'wrestlers'}...">
+      <div class="custom-pick-tools"><span data-custom-selected-count>${selected.size} selected</span><div><button class="mini-btn" data-custom-select-shown>SELECT SHOWN</button><button class="mini-btn" data-custom-clear>CLEAR</button></div></div>
+      <div class="custom-roster-list">${choices.map(c=>`<label class="custom-wrestler-row" data-custom-search-name="${esc(c.search)}"><input type="checkbox" data-custom-entry value="${esc(c.value)}" ${selected.has(c.value)?'checked':''}><span class="custom-wrestler-name">${esc(c.title)}${c.subtitle?`<small>${esc(c.subtitle)}</small>`:''}</span><span class="pill ${customTournamentStatusClass(c.status)}">${esc(c.status)}</span></label>`).join('')}</div>
+      <div class="custom-builder-foot"><div class="custom-builder-note">Choose 2 or more ${mode.type==='Tag'?'teams':'wrestlers'}. BYEs are added randomly to make the knockout draw work.</div><button class="chaos-advance" data-custom-start>START CUSTOM CHAOS</button></div>
+    </div>
+  </div>`;
+}
+function refreshCustomSelectedCount(){
+  const el=document.querySelector('[data-custom-selected-count]');
+  if(el)el.textContent=`${customTournamentDraft?.selected?.length||0} selected`;
+}
+function startCustomTournament(){
+  if(!customTournamentDraft)return;
+  const name=(customTournamentDraft.name||'').trim();
+  if(!name){alert('Give the custom tournament a name first.');return}
+  const entrants=[...new Set(customTournamentDraft.selected||[])];
+  const mode=customTournamentModeParts(customTournamentDraft.mode);
+  if(entrants.length<2){alert(`Pick at least two ${mode.type==='Tag'?'teams':'wrestlers'}.`);return}
+  const def={
+    _customId:newCustomTournamentId(),
+    competition:name,
+    type:mode.type,
+    division:mode.division,
+    format:'KO',
+    finalArena:customTournamentDraft.arena||'User choice',
+    customEntrants:entrants,
+    createdAt:new Date().toISOString()
+  };
+  const defs=loadCustomTournamentDefs();
+  defs.push(def);
+  saveCustomTournamentDefs(defs);
+  customTournamentDraft=null;
+  startChaosTournament(tournamentKey(def));
+}
+function deleteCustomTournament(key){
+  const def=tournamentByKey(key);
+  if(!def?._customId)return;
+  if(!confirm(`Delete custom tournament "${def.competition}"?`))return;
+  saveCustomTournamentDefs(loadCustomTournamentDefs().filter(x=>tournamentKey(x)!==key));
+  const runs=loadTournamentRuns();
+  delete runs[key];
+  saveTournamentRuns(runs);
+  if(state.activeTournamentKey===key)state.activeTournamentKey=null;
+  render();
+}
+function tournaments(){
+  const runs=loadTournamentRuns();
+  if(state.activeTournamentKey){
+    const t=tournamentByKey(state.activeTournamentKey);
+    const run=runs[state.activeTournamentKey];
+    if(t&&run)return chaosTournamentDetail(t,run);
+    state.activeTournamentKey=null;
+  }
+  const customDefs=loadCustomTournamentDefs();
+  const customCards=customDefs.map(t=>{
+    const key=tournamentKey(t),run=runs[key],n=t.customEntrants?.length||0;
+    const status=run?.status==='ACTIVE'
+      ? `<span class="pill warn">IN PROGRESS</span>`
+      : run?.status==='COMPLETE'
+        ? `<span class="pill good">CHAMPION: ${esc(run.champion||'TBA')}</span>`
+        : `<span class="pill custom-pill">CUSTOM</span>`;
+    const action=run?.status==='ACTIVE'
+      ? `<button class="small-action" data-chaos-open="${esc(key)}">RESUME CHAOS</button>`
+      : run?.status==='COMPLETE'
+        ? `<button class="small-action" data-chaos-open="${esc(key)}">VIEW RESULT</button>`
+        : `<button class="small-action" data-chaos-start="${esc(key)}">START CHAOS</button>`;
+    const label=t.type==='Tag'?(t.division==='Mixed'?'Mixed Tag':`${t.division} Tag`):`${t.division} Singles`;
+    return `<div class="card tournament-card custom-tournament-card">
+      <div class="tournament-card-head"><h4>${esc(t.competition)}</h4>${status}</div>
+      <p>Custom ${esc(label)} &bull; ${n} chosen entrants</p>
+      <p>Random valid match type on every match &bull; random BYEs when needed</p>
+      <p>Venue: ${esc(t.finalArena||'User choice')}</p>
+      <div class="custom-card-actions"><div>${action}</div><button class="mini-btn danger-btn" data-custom-delete="${esc(key)}">DELETE</button></div>
+    </div>`;
+  }).join('');
+  const builtInCards=state.data.tournaments.map(t=>{
+    const n=competitionCount(t),key=tournamentKey(t),run=runs[key];
+    const status=run?.status==='ACTIVE'
+      ? `<span class="pill warn">IN PROGRESS</span>`
+      : run?.status==='COMPLETE'
+        ? `<span class="pill good">CHAMPION: ${esc(run.champion||'TBA')}</span>`
+        : `<span class="pill">${bracketAdvice(n)}</span>`;
+    const action=run?.status==='ACTIVE'
+      ? `<button class="small-action" data-chaos-open="${esc(key)}">RESUME CHAOS</button>`
+      : run?.status==='COMPLETE'
+        ? `<button class="small-action" data-chaos-open="${esc(key)}">VIEW RESULT</button>`
+        : `<button class="small-action" data-chaos-start="${esc(key)}" ${n<2?'disabled':''}>${n<2?'WAITING':'START CHAOS'}</button>`;
+    return `<div class="card tournament-card">
+      <div class="tournament-card-head"><h4>${esc(t.competition)}</h4>${status}</div>
+      <p>${esc(t.type)} &bull; ${esc(t.division)} &bull; ${n} unlocked entrants</p>
+      <p>Match pool is built from WWE ${esc(state.game)} tournament types and rerolls independently for every match.</p>
+      <p>Final arena: ${esc(t.finalArena||'TBA')}</p>
+      <div class="tournament-card-action">${action}</div>
+    </div>`;
+  }).join('');
+  return `${customTournamentBuilder()}
+    <div class="section-title custom-tournament-title"><div><h3>Tournaments</h3><span>Title tournaments + make-your-own CHAOS</span></div><button class="small-action" data-custom-create>+ CUSTOM TOURNAMENT</button></div>
+    ${customDefs.length?`<div class="custom-tournament-heading">CUSTOM TOURNAMENTS</div><div class="cards tournament-cards">${customCards}</div><div class="custom-tournament-heading standard-heading">CHAMPIONSHIP TOURNAMENTS</div>`:''}
+    <div class="cards tournament-cards">${builtInCards}</div>`;
+}
 function game(){
   let content='';
 
@@ -471,6 +889,70 @@ document.addEventListener('click',async e=>{
       if(state.teamEditor===found.id)state.teamEditor=null;
       render();
     }
+  }
+});
+// === WTU CHAOS TOURNAMENT CLICKS v1 ===
+document.addEventListener('click',e=>{
+  const list=e.target.closest('[data-chaos-list]');
+  if(list){state.activeTournamentKey=null;render();return}
+  const open=e.target.closest('[data-chaos-open]');
+  if(open){state.activeTournamentKey=open.dataset.chaosOpen;render();return}
+  const start=e.target.closest('[data-chaos-start]');
+  if(start){startChaosTournament(start.dataset.chaosStart);return}
+  const reroll=e.target.closest('[data-chaos-reroll]');
+  if(reroll){rerollChaosMatch(reroll.dataset.chaosReroll,reroll.dataset.chaosMatch);return}
+  const winner=e.target.closest('[data-chaos-winner]');
+  if(winner){setChaosWinner(winner.dataset.chaosWinner,winner.dataset.chaosMatch,winner.dataset.chaosName);return}
+  const advance=e.target.closest('[data-chaos-advance]');
+  if(advance){advanceChaosTournament(advance.dataset.chaosAdvance);return}
+  const abandon=e.target.closest('[data-chaos-abandon]');
+  if(abandon){abandonChaosTournament(abandon.dataset.chaosAbandon);return}
+});
+// === WTU CUSTOM CHAOS TOURNAMENT CLICKS v1 ===
+document.addEventListener('click',e=>{
+  const create=e.target.closest('[data-custom-create]');
+  if(create){openCustomTournamentBuilder();return}
+  const close=e.target.closest('[data-custom-close]');
+  if(close){closeCustomTournamentBuilder();return}
+  const start=e.target.closest('[data-custom-start]');
+  if(start){startCustomTournament();return}
+  const del=e.target.closest('[data-custom-delete]');
+  if(del){deleteCustomTournament(del.dataset.customDelete);return}
+  const clear=e.target.closest('[data-custom-clear]');
+  if(clear&&customTournamentDraft){customTournamentDraft.selected=[];document.querySelectorAll('[data-custom-entry]').forEach(x=>x.checked=false);refreshCustomSelectedCount();return}
+  const selectShown=e.target.closest('[data-custom-select-shown]');
+  if(selectShown&&customTournamentDraft){
+    const selected=new Set(customTournamentDraft.selected||[]);
+    document.querySelectorAll('.custom-wrestler-row').forEach(row=>{
+      if(row.style.display==='none')return;
+      const box=row.querySelector('[data-custom-entry]');
+      if(box){box.checked=true;selected.add(box.value)}
+    });
+    customTournamentDraft.selected=[...selected];
+    refreshCustomSelectedCount();
+    return;
+  }
+});
+document.addEventListener('input',e=>{
+  if(e.target.matches('[data-custom-name]')&&customTournamentDraft){customTournamentDraft.name=e.target.value;return}
+  if(e.target.matches('[data-custom-search]')){
+    const q=e.target.value.trim().toLowerCase();
+    document.querySelectorAll('.custom-wrestler-row').forEach(row=>{row.style.display=!q||row.dataset.customSearchName.includes(q)?'':'none'});
+  }
+});
+document.addEventListener('change',e=>{
+  if(e.target.matches('[data-custom-mode]')&&customTournamentDraft){
+    customTournamentDraft.mode=e.target.value;
+    customTournamentDraft.selected=[];
+    render();
+    return;
+  }
+  if(e.target.matches('[data-custom-arena]')&&customTournamentDraft){customTournamentDraft.arena=e.target.value;return}
+  if(e.target.matches('[data-custom-entry]')&&customTournamentDraft){
+    const selected=new Set(customTournamentDraft.selected||[]);
+    if(e.target.checked)selected.add(e.target.value);else selected.delete(e.target.value);
+    customTournamentDraft.selected=[...selected];
+    refreshCustomSelectedCount();
   }
 });
 document.addEventListener('submit',e=>{

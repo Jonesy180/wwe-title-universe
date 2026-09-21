@@ -1,4 +1,4 @@
-const CACHE='wtu-v1.1.1';
+const CACHE='wtu-v1.3.1';
 const ASSETS=[
   './',
   'index.html',
